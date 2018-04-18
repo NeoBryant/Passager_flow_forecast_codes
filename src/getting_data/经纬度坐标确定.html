@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <style type="text/css">
+      body,html,#container{
+        height: 100%;
+        margin: 0px
+      }
+      .panel {
+        background-color: #ddf;
+        color: #333;
+        border: 1px solid silver;
+        box-shadow: 3px 4px 3px 0px silver;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        border-radius: 5px;
+        overflow: hidden;
+        line-height: 20px;
+      }
+      #input{
+        width: 250px;
+        height: 25px;
+        border: 0;
+      }
+    </style>
+    <title>地址与经纬度</title>
+    
+  </head>
+  <body>
+   <div id="container" tabindex="0"></div>
+   <div class ='panel'>
+     <input id = 'input' value = '点击地图显示地址/输入地址显示位置' onfocus = 'this.value=""'></input>
+     <div id = 'message'></div>
+   </div>
+   <script type="text/javascript" src="https://webapi.amap.com/maps?v=1.4.1&key=addd70f300ccf3d6816a53bac4bc1536"></script>
+   <script type="text/javascript">
+    var map = new AMap.Map('container',{
+            resizeEnable: true,
+            zoom: 17,
+            center: [113.40590884,23.137956169]
+    });
+    AMap.plugin('AMap.Geocoder',function(){
+        var geocoder = new AMap.Geocoder({
+            city: "010"//城市，默认：“全国”
+        });
+        var marker = new AMap.Marker({
+            map:map,
+            bubble:true
+        })
+        var input = document.getElementById('input');
+        var message = document.getElementById('message');
+        map.on('click',function(e){
+            marker.setPosition(e.lnglat);
+            alert(e.lnglat);   //在地图上点击，即可提醒得到经纬度
+            geocoder.getAddress(e.lnglat,function(status,result){
+              if(status=='complete'){
+                 input.value = result.regeocode.formattedAddress
+                 message.innerHTML = ''
+              }else{
+                 message.innerHTML = '无法获取地址'
+              }
+            })
+        })
+        
+        input.onchange = function(e){
+            var address = input.value;
+            geocoder.getLocation(address,function(status,result){
+              if(status=='complete'&&result.geocodes.length){
+                marker.setPosition(result.geocodes[0].location);
+                map.setCenter(marker.getPosition())
+                message.innerHTML = ''
+              }else{
+                message.innerHTML = '无法获取位置'
+              }
+            })
+        }
+
+    });
+   </script>
+   <script type="text/javascript" src="https://webapi.amap.com/demos/js/liteToolbar.js"></script>
+    
+  </body>
+</html>

@@ -1,0 +1,321 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <title>出行人数</title>
+    <link rel="stylesheet" href="https://cache.amap.com/lbs/static/main.css"/>
+    <script type="text/javascript"
+            src="https://webapi.amap.com/maps?v=1.4.1&key=addd70f300ccf3d6816a53bac4bc1536"></script>
+    <style type="text/css">
+         #panel {
+            position: fixed;
+            background-color: white;
+            max-height: 90%;
+            overflow-y: auto;
+            top: 10px;
+            right: 10px;
+            width: 280px;
+        }
+    </style>
+</head>
+<body>
+<div id="mapContainer"></div>
+<div id="panel">
+</div>
+<script type="text/javascript">
+
+    //一些基本参数声明
+    var rows = 45; //一共有45行
+    var grids_each_row = [11,17,21,25,27,29,33,35,35,37,39,39,41,41,43,43,43,43,45,45,45,45,45,45,45,45,45,43,43,43,43,41,41,39,39,37,35,35,33,29,27,25,21,17,11]; //从最上面一行到最下面一行每一行到格子数量  
+
+    var population_grids = new Array(rows); //存储每个格子最终计算得到的人数
+
+    var distances_grids = new Array(rows); //记录各个格子到站点的最近距离
+
+    var M147_probabilty_grids = new Array(rows); //a=1.4,b=0.007 记录各个格子的出行概率
+
+    var numberOfResident = 26537; //总人数 
+
+    var sum_grids = 0; //用于统计栅格数量
+    var real_value = 4827; //实际客流量
+    //参数系
+    var M147_a = 1.4, M147_b = 0.007;
+
+    var W = 0;  //总权重
+    var str_path = 'F://distance_set/line_one_1.txt';
+    //栅格类
+    function Grid() {
+        this.weightArea = 0;    //密度区权重
+        this.weightFuction = 0; //土地利用类型权重
+        this.lower = 0;         //权重下限
+        this.upper = 0;         //权重下限
+        this.population = 0;    //人口数量
+        this.weight = 0;        //总权重
+        this.distance = 0;      //到站点距离
+    }
+
+    //到达站点最近距离函数
+    function distanceOfWalking() {
+        var i = 0;
+        for (i = 0; i < 45; ++i) {
+        	sum_grids += grids_each_row[i];
+        }
+
+        var arr_distances = new Array(sum_grids+1);//用于储存从文件中读的数据
+        var fso, f, s ;
+        fso = new ActiveXObject("Scripting.FileSystemObject");
+        f = fso.OpenTextFile(str_path);
+        for (i = 0; i < sum_grids; ++i){
+            arr_distances[i]  = f.ReadLine(); 
+        }
+        f.Close();
+        //alert("数据读取成功");
+
+        var count = 0;
+        for (i = 0; i < rows; ++i) {
+            distances_grids[i] = new Array(grids_each_row[i]); //每一行的格子数目
+            for (k = 0; k < grids_each_row[i]; ++k) {
+                distances_grids[i][k] = arr_distances[count++]; //初始化
+            }
+        }
+    }
+
+
+    //出行概率计算统计函数
+    function probabiltyOfWaiking() {
+        for (var i = 0; i < rows; ++i) {
+            //每一行的格子数目
+            M147_probabilty_grids[i] = new Array(grids_each_row[i]); 
+
+            var e = Math.exp(1); //自然数e
+            //计算出行概率
+            for (var k = 0; k < grids_each_row[i]; ++k) {
+                M147_probabilty_grids[i][k] = (Math.pow(e,1.4-0.007*distances_grids[i][k]))/(1+Math.pow(e,1.4-0.007*distances_grids[i][k]));
+            }
+        }
+    }
+
+
+    //得到每个格子的人数
+    function getPopulation() {
+        //var W = 0;  //总权重
+        //var numberOfResident = 26004; //总人数 
+        for (var i = 0; i < 45; ++i) { //行遍历，申请空间并且初始化
+            population_grids[i] = new Array(grids_each_row[i]); //每一行的格子数目
+            for (var k = 0; k < grids_each_row[i]; ++k) {
+                population_grids[i][k] = new Grid();
+            }
+        }
+
+
+        //分配权重值:密度区
+        //密度区1
+        for (i = 0; i <= 25; ++i) {
+            for (k = grids_each_row[i]-1; k > grids_each_row[i]/2; --k) {
+                population_grids[i][k].weightArea = 10;
+            }
+        }
+
+        //密度区2
+        for (i = 9; i <= 22; ++i) {
+            for (k = 0; k < grids_each_row[i]/2-7; ++k) {
+                population_grids[i][k].weightArea = 25;
+            }
+        }
+
+        //密度区3
+        for (i = 29; i <= 44; ++i) {
+            for (k = 0; k < grids_each_row[i]/2-4; ++k) {
+                population_grids[i][k].weightArea = 25;
+            }
+        }
+
+        //密度区4
+        for (i = 25; i <= 44; ++i) {
+            for (k = grids_each_row[i]-1; k > grids_each_row[i]/2+1; --k) {
+                population_grids[i][k].weightArea = 40;
+            }
+        }
+
+
+        //分配权重：土地利用类型
+        //密度区1内部：
+        //体育场
+        /*for (i = 0; i < 8; ++i) {
+            for (k = grids_each_row[i]/2; k < grids_each_row[i]; ++k) {
+                population_grids[i][k].weightFuction = 5;
+            }
+        } */
+        for (i = 1; i < 9; ++i) {
+            for (k = (grids_each_row[i]/2).toFixed(0); k < grids_each_row[i]; ++k) {
+                population_grids[i][k].weightFuction = 5;
+            }
+        }
+
+        for (i = 9; i <= 25; ++i) {
+            for (k = (grids_each_row[i]/2).toFixed(0); k < grids_each_row[i]/2+15; ++k) {
+                population_grids[i][k].weightFuction = 5;
+            }
+        }    
+        //商业区
+        for (i = 9; i <= 25; ++i) {
+            for (k = (grids_each_row[i]/2).toFixed(0)+16; k < grids_each_row[i]; ++k) {
+                population_grids[i][k].weightFuction = 15;
+            }
+        }  
+
+        //密度区2内部：
+        //住宅区
+        for (i = 9; i <= 22; ++i) {
+            for (k = 0; k < grids_each_row[i]/2-7; ++k) {
+                population_grids[i][k].weightFuction = 70;
+            }
+        }
+        //密度区3内部：
+        //住宅区
+        for (i = 29; i <= 44; ++i) {
+            for (k = 0; k < grids_each_row[i]/2-6; ++k) {
+                population_grids[i][k].weightFuction = 70;
+            }
+        }
+        //工商业混杂区
+        for (i = 29; i <= 44; ++i) {
+            for (k = (grids_each_row[i]/2).toFixed(0)-6; k < grids_each_row[i]/2-4; ++k) {
+                population_grids[i][k][1] = 15;
+            }
+        }
+
+        //密度区4内部：
+        //住宅区
+        for (i = 25; i <= 44; ++i) {
+            for (k = grids_each_row[i]-1; k > grids_each_row[i]/2+1; --k) {
+                population_grids[i][k].weightFuction = 70;
+            }
+        }        
+
+
+
+
+        //统计权值
+        for (var i = 0; i < 45; ++i) { //行遍历，申请空间并且初始化
+            for (var k = 0; k < grids_each_row[i]; ++k) {
+                population_grids[i][k].weight = population_grids[i][k].weightArea+population_grids[i][k].weightFuction;
+                population_grids[i][k].lower = W;
+                W += population_grids[i][k].weight;
+                population_grids[i][k].upper = W;
+            }
+        }       
+        
+        //分配人数
+        /*var count = 0; //统计人数是否超过总人数
+        while (1) {
+            var flag = 0;  //记录是否人数加一
+            var randomNum = Math.random()*W;
+  
+            for (var i = 0; i < 45; ++i) { //行遍历，申请空间并且初始化
+                flag = 0;
+                for (var k = 0; k < grids_each_row[i]; ++k) {
+                    if (randomNum >= population_grids[i][k].lower && randomNum < population_grids[i][k].upper) {
+                        ++population_grids[i][k].population;
+                        flag = 1;
+                        break;
+                    }
+                }
+                if (flag == 1) {
+                    break;
+                }
+            }  
+            ++count;
+            if (count >= numberOfResident) {
+                break;
+            }            
+        }*/
+    }
+
+    function population_decomposition(){
+        //分配人数
+        var count = 0; //统计人数是否超过总人数
+        while (1) {
+            var flag = 0;  //记录是否人数加一
+            var randomNum = Math.random()*W;
+  
+            for (var i = 0; i < 45; ++i) { //行遍历，申请空间并且初始化
+                flag = 0;
+                for (var k = 0; k < grids_each_row[i]; ++k) {
+                    if (randomNum >= population_grids[i][k].lower && randomNum < population_grids[i][k].upper) {
+                        ++population_grids[i][k].population;
+                        flag = 1;
+                        break;
+                    }
+                }
+                if (flag == 1) {
+                    break;
+                }
+            }  
+            ++count;
+            if (count >= numberOfResident) {
+                break;
+            }            
+        }
+    }
+
+    //计算最终到站人数
+    function getFinalResult() {
+        var M147_population = 0;
+
+        for (var i = 0; i < 45; ++i) {
+            for (var k = 0; k < grids_each_row[i]; ++k) {
+                M147_population += (population_grids[i][k].population * M147_probabilty_grids[i][k]);
+            }
+        }
+
+        M147_population = M147_population.toFixed(0);
+        //alert("\nM147_population="+M147_population);
+        return M147_population;
+    }
+
+
+
+    function main(){
+
+        var interval_of_resident = 500;
+        var i = 0;
+        var redicted_value = 0;
+        distanceOfWalking();
+        probabiltyOfWaiking();
+        getPopulation();
+        var difference_value_set = new Array(2*interval_of_resident+1); //预测值与真实值的差值
+        var count = 0;
+        for (i = numberOfResident-interval_of_resident; i <numberOfResident+interval_of_resident;++i){
+            population_decomposition();
+            redicted_value = getFinalResult();
+            difference_value_set[count++] = real_value > redicted_value ? real_value-redicted_value : redicted_value-real_value; 
+        }
+
+        //找最小值
+        var min = 999999;
+        var index = 0;
+        for (i = 0; i < 2*interval_of_resident+1; ++i){
+            if (difference_value_set[i] < min){
+                min = difference_value_set[i];
+                index = i;
+            } 
+        }
+        var res =  numberOfResident-interval_of_resident+index;
+        alert("人数最优："+res+"\n与预测值绝对误差："+min);
+    }
+    
+
+    //distanceOfWalking();
+    //probabiltyOfWaiking();
+    //getPopulation();
+    //getFinalResult();
+    main();
+</script>
+  <script type="text/javascript" src="https://webapi.amap.com/demos/js/liteToolbar.js"></script>
+  
+</body>
+<script type="text/javascript" src="jquery.js"></script>
+</html>
