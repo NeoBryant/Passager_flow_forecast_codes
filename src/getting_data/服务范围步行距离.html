@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
-    <title>出行人数</title>
+    <title>服务范围步行距离</title>
     <link rel="stylesheet" href="https://cache.amap.com/lbs/static/main.css"/>
     <script type="text/javascript"
             src="https://webapi.amap.com/maps?v=1.4.1&key=addd70f300ccf3d6816a53bac4bc1536"></script>
@@ -130,7 +130,7 @@
         var j = 0;
         var fso, f, s ;
         fso = new ActiveXObject("Scripting.FileSystemObject");
-        f = fso.OpenTextFile('F://distance_set/line_two_18.txt',2,true);
+        f = fso.OpenTextFile('F://Passager_flow_forecast/data/distences/line_two_18.txt',2,true);
         for (j = 0; j < sum; ++j){
             f.WriteLine(arr[j].distance); 
         }

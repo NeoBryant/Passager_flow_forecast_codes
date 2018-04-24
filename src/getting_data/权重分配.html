@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <title>权重分配</title>
+    <link rel="stylesheet" href="https://cache.amap.com/lbs/static/main.css"/>
+    <script type="text/javascript"
+            src="https://webapi.amap.com/maps?v=1.4.1&key=addd70f300ccf3d6816a53bac4bc1536"></script>
+    <style type="text/css">
+         #panel {
+            position: fixed;
+            background-color: white;
+            max-height: 90%;
+            overflow-y: auto;
+            top: 10px;
+            right: 10px;
+            width: 280px;
+        }
+    </style>
+</head>
+<body>
+<div id="mapContainer"></div>
+<div id="panel">
+</div>
+<script type="text/javascript">
+
+    //一些基本参数声明
+    var rows = 45; //一共有45行
+    var grids_each_row = [11,17,21,25,27,29,33,35,35,37,39,39,41,41,43,43,43,43,45,45,45,45,45,45,45,45,45,43,43,43,43,41,41,39,39,37,35,35,33,29,27,25,21,17,11]; //从最上面一行到最下面一行每一行到格子数量  
+
+    var population_grids = new Array(rows);
+
+    var sum_grids = 0; //用于统计栅格数量
+
+    var str_path = 'F://distance_set/line_one_1.txt';
+
+    //栅格类
+    function Grid() {
+        this.weightArea = 0;    //密度区权重
+        this.weightFuction = 0; //土地利用类型权重
+        this.lower = 0;         //权重下限
+        this.upper = 0;         //权重下限
+        this.population = 0;    //人口数量
+        this.weight = 0;        //总权重
+        this.distance = 0;      //到站点距离
+    }
+
+
+    //得到每个格子权重
+    function getWeights() {
+        var W = 0;  //总权重
+
+        //计算总共的格子数
+        for (i = 0; i < 45; ++i) {
+            sum_grids += grids_each_row[i];
+        }
+ 
+        for (var i = 0; i < 45; ++i) { //行遍历，申请空间并且初始化
+            population_grids[i] = new Array(grids_each_row[i]); //每一行的格子数目
+            for (var k = 0; k < grids_each_row[i]; ++k) {
+                population_grids[i][k] = new Grid();
+            }
+        }
+
+        //分配权重值:密度区
+        //密度区1
+        for (i = 0; i <= 25; ++i) {
+            for (k = grids_each_row[i]-1; k > grids_each_row[i]/2; --k) {
+                population_grids[i][k].weightArea = 10;
+            }
+        }
+
+        //密度区2
+        for (i = 9; i <= 22; ++i) {
+            for (k = 0; k < grids_each_row[i]/2-7; ++k) {
+                population_grids[i][k].weightArea = 25;
+            }
+        }
+
+        //密度区3
+        for (i = 29; i <= 44; ++i) {
+            for (k = 0; k < grids_each_row[i]/2-4; ++k) {
+                population_grids[i][k].weightArea = 25;
+            }
+        }
+
+        //密度区4
+        for (i = 25; i <= 44; ++i) {
+            for (k = grids_each_row[i]-1; k > grids_each_row[i]/2+1; --k) {
+                population_grids[i][k].weightArea = 40;
+            }
+        }
+
+
+        //分配权重：土地利用类型
+        //密度区1内部：
+        //体育场
+        /*for (i = 0; i < 8; ++i) {
+            for (k = grids_each_row[i]/2; k < grids_each_row[i]; ++k) {
+                population_grids[i][k].weightFuction = 5;
+            }
+        } */
+        for (i = 1; i < 9; ++i) {
+            for (k = (grids_each_row[i]/2).toFixed(0); k < grids_each_row[i]; ++k) {
+                population_grids[i][k].weightFuction = 5;
+            }
+        }
+
+        for (i = 9; i <= 25; ++i) {
+            for (k = (grids_each_row[i]/2).toFixed(0); k < grids_each_row[i]/2+15; ++k) {
+                population_grids[i][k].weightFuction = 5;
+            }
+        }    
+        //商业区
+        for (i = 9; i <= 25; ++i) {
+            for (k = (grids_each_row[i]/2).toFixed(0)+16; k < grids_each_row[i]; ++k) {
+                population_grids[i][k].weightFuction = 15;
+            }
+        }  
+
+        //密度区2内部：
+        //住宅区
+        for (i = 9; i <= 22; ++i) {
+            for (k = 0; k < grids_each_row[i]/2-7; ++k) {
+                population_grids[i][k].weightFuction = 70;
+            }
+        }
+        //密度区3内部：
+        //住宅区
+        for (i = 29; i <= 44; ++i) {
+            for (k = 0; k < grids_each_row[i]/2-6; ++k) {
+                population_grids[i][k].weightFuction = 70;
+            }
+        }
+        //工商业混杂区
+        for (i = 29; i <= 44; ++i) {
+            for (k = (grids_each_row[i]/2).toFixed(0)-6; k < grids_each_row[i]/2-4; ++k) {
+                population_grids[i][k][1] = 15;
+            }
+        }
+
+        //密度区4内部：
+        //住宅区
+        for (i = 25; i <= 44; ++i) {
+            for (k = grids_each_row[i]-1; k > grids_each_row[i]/2+1; --k) {
+                population_grids[i][k].weightFuction = 70;
+            }
+        }        
+
+        //统计权值
+        for (var i = 0; i < 45; ++i) { //行遍历，申请空间并且初始化
+            for (var k = 0; k < grids_each_row[i]; ++k) {
+                population_grids[i][k].weight = population_grids[i][k].weightArea+population_grids[i][k].weightFuction;
+                //population_grids[i][k].lower = W;
+                //W += population_grids[i][k].weight;
+                //population_grids[i][k].upper = W;
+            }
+        }      
+    }
+
+
+    //将权重写入txt文档
+    function write_to_file(){
+        var j = 0, i = 0;
+        var fso, f, s ;
+        fso = new ActiveXObject("Scripting.FileSystemObject");
+        f = fso.OpenTextFile('F://Passager_flow_forecast/data/weights/weight_line_two_1.txt',2,true);
+        for (i = 0; i < rows; ++i){
+            for (j = 0; j < grids_each_row[i]; ++j){
+                f.WriteLine(population_grids[i][j].weight);
+            }
+        }
+        f.Close();
+        alert("读写成功");
+    }
+
+
+    function main(){
+        getWeights(); //分配权重
+        write_to_file(); //将权重输入到txt文档中
+    }
+    
+
+    main();
+</script>
+  <script type="text/javascript" src="https://webapi.amap.com/demos/js/liteToolbar.js"></script>
+  
+</body>
+<script type="text/javascript" src="jquery.js"></script>
+</html>
